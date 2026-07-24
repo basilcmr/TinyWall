@@ -694,7 +694,7 @@ namespace pylorak.TinyWall
             mnuEnableHostsBlocklist.Checked = ActiveConfig.Service.Blocklists.EnableBlocklists;
         }
 
-        private void SetMode(FirewallMode mode)
+        internal void SetMode(FirewallMode mode)
         {
             MessageType resp = GlobalInstances.Controller.SwitchFirewallMode(mode);
             string usermsg = mode switch

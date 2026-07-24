@@ -13,11 +13,14 @@ namespace pylorak.TinyWall
 
         private System.Windows.Forms.Timer? _pollTimer;
         private bool _isShowingPrompt = false;
+        public bool IsPaused { get; private set; } = false;
 
         private AutoAskPromptManager() { }
 
         public void Start()
         {
+            IsPaused = false; // Always resume asking when switching modes back to AutoAsk
+
             if (_pollTimer != null) return;
 
             _pollTimer = new System.Windows.Forms.Timer();
@@ -37,7 +40,7 @@ namespace pylorak.TinyWall
 
         private void PollTimer_Tick(object? sender, EventArgs e)
         {
-            if (_isShowingPrompt) return;
+            if (_isShowingPrompt || IsPaused) return;
 
             var controller = GlobalInstances.TinyWallControllerInstance;
             if (controller == null) return;
@@ -63,10 +66,24 @@ namespace pylorak.TinyWall
             {
                 foreach (var entry in entries)
                 {
+                    if (IsPaused) break;
+
                     using var form = new AutoAskPromptForm(entry);
                     DialogResult res = form.ShowDialog();
                     if (res == DialogResult.OK)
                     {
+                        if (form.SelectedResult == AutoAskPromptForm.PromptResult.PauseAutoAsk)
+                        {
+                            IsPaused = true;
+                            break;
+                        }
+                        else if (form.SelectedResult == AutoAskPromptForm.PromptResult.SwitchToNormalMode)
+                        {
+                            IsPaused = false;
+                            controller.SetMode(FirewallMode.Normal);
+                            break;
+                        }
+
                         ProcessUserDecision(entry, form.SelectedResult, form.ChildProcessesInherit);
                     }
                 }

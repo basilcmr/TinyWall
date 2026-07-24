@@ -16,7 +16,9 @@ namespace pylorak.TinyWall
             AllowWebOnly,
             BlockOnce,
             BlockAlways,
-            Customized
+            Customized,
+            PauseAutoAsk,
+            SwitchToNormalMode
         }
 
         public PromptResult SelectedResult { get; private set; } = PromptResult.BlockOnce;
@@ -37,6 +39,8 @@ namespace pylorak.TinyWall
         private Button? btnAllowWebOnly;
         private Button? btnBlockOnce;
         private Button? btnBlockAlways;
+        private Button? btnPauseAutoAsk;
+        private Button? btnSwitchNormalMode;
 
         public AutoAskPromptForm(AutoAskPendingEntry entry)
         {
@@ -54,7 +58,7 @@ namespace pylorak.TinyWall
         private void InitializeComponent()
         {
             this.Text = "FoxWall Connection Alert";
-            this.Size = new Size(500, 395);
+            this.Size = new Size(500, 445);
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
             this.MinimizeBox = false;
@@ -138,6 +142,24 @@ namespace pylorak.TinyWall
             };
             btnBlockAlways.Click += (s, e) => { SelectedResult = PromptResult.BlockAlways; };
 
+            btnPauseAutoAsk = new Button
+            {
+                Text = "⏸ Pause Asking",
+                Location = new Point(20, 325),
+                Size = new Size(220, 35),
+                DialogResult = DialogResult.OK
+            };
+            btnPauseAutoAsk.Click += (s, e) => { SelectedResult = PromptResult.PauseAutoAsk; };
+
+            btnSwitchNormalMode = new Button
+            {
+                Text = "🛡 Switch to Normal Mode",
+                Location = new Point(260, 325),
+                Size = new Size(220, 35),
+                DialogResult = DialogResult.OK
+            };
+            btnSwitchNormalMode.Click += (s, e) => { SelectedResult = PromptResult.SwitchToNormalMode; };
+
             // Create copy to clipboard context menu
             var copyMenu = new ContextMenuStrip();
             ThemeManager.ApplyToControl(copyMenu);
@@ -193,6 +215,8 @@ namespace pylorak.TinyWall
             this.Controls.Add(btnAllowWebOnly);
             this.Controls.Add(btnBlockOnce);
             this.Controls.Add(btnBlockAlways);
+            this.Controls.Add(btnPauseAutoAsk);
+            this.Controls.Add(btnSwitchNormalMode);
 
             lblAppName.ContextMenuStrip = copyMenu;
             lblAppPath.ContextMenuStrip = copyMenu;
