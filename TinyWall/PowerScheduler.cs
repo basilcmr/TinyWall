@@ -71,6 +71,7 @@ namespace pylorak.TinyWall
         
         // Smart Hybrid Grace Period
         public int GraceSeconds { get; private set; } = 300;
+        public bool SwitchToNormalBeforeShutdown { get; private set; } = false;
 
         // Chain Schedule properties
         public bool HasChainTrigger { get; private set; }
@@ -101,7 +102,8 @@ namespace pylorak.TinyWall
             TriggerType chainTrigger = TriggerType.Duration,
             int chainValue = 0,
             string? chainExactTimeStr = null,
-            int graceSeconds = 300)
+            int graceSeconds = 300,
+            bool switchToNormalBeforeShutdown = false)
         {
             lock (_lock)
             {
@@ -112,6 +114,7 @@ namespace pylorak.TinyWall
                 Mode = mode;
                 CanCancel = canCancel;
                 GraceSeconds = graceSeconds;
+                SwitchToNormalBeforeShutdown = switchToNormalBeforeShutdown;
                 IsGraceActive = false;
                 _idleCounterSeconds = 0;
                 _bandwidthCounterSeconds = 0;
@@ -384,6 +387,21 @@ namespace pylorak.TinyWall
         {
             try
             {
+                // [FoxWall Enhancement] Pre-shutdown Firewall Mode Reset
+                if (SwitchToNormalBeforeShutdown && (Action == PowerAction.Shutdown || Action == PowerAction.Restart))
+                {
+                    try
+                    {
+                        Utils.Log("Pre-shutdown Normal mode switch initiated (10s buffer)...", Utils.LOG_ID_GUI);
+                        GlobalInstances.Controller?.SwitchFirewallMode(FirewallMode.Normal);
+                        Thread.Sleep(10000); // 10-second buffer to guarantee WFP rule persistence
+                    }
+                    catch (Exception ex)
+                    {
+                        Utils.LogException(ex, Utils.LOG_ID_GUI);
+                    }
+                }
+
                 switch (Action)
                 {
                     case PowerAction.Lock:

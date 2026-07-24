@@ -401,6 +401,7 @@ namespace pylorak.TinyWall
                             string? chainValueStr = request.QueryString["chainValue"];
                             string? chainExactTimeStr = request.QueryString["chainExactTime"];
                             string? graceSecondsStr = request.QueryString["graceSeconds"];
+                            string? switchToNormalStr = request.QueryString["switchToNormal"];
 
                             if (string.IsNullOrEmpty(actionStr) || string.IsNullOrEmpty(triggerStr))
                             {
@@ -446,6 +447,12 @@ namespace pylorak.TinyWall
                                 int.TryParse(graceSecondsStr, out graceSeconds);
                             }
 
+                            bool switchToNormal = false;
+                            if (!string.IsNullOrEmpty(switchToNormalStr))
+                            {
+                                bool.TryParse(switchToNormalStr, out switchToNormal);
+                            }
+
                             bool hasChainTrigger = false;
                             TriggerType chainTrigger = TriggerType.Duration;
                             int chainValue = 0;
@@ -471,7 +478,8 @@ namespace pylorak.TinyWall
                                 chainTrigger, 
                                 chainValue, 
                                 chainExactTimeStr,
-                                graceSeconds
+                                graceSeconds,
+                                switchToNormal
                             );
                             responseData = new { success = true };
                         }

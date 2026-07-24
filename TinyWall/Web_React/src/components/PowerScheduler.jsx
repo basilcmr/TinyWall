@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Power, Timer, Clock, ShieldAlert, Monitor, Volume2, HardDrive, Tv } from 'lucide-react';
+import { Power, Timer, Clock, ShieldAlert, Monitor, Volume2, HardDrive, Tv, Bookmark, Save, Trash2, RotateCcw, Plus, Check, Sparkles, ShieldCheck } from 'lucide-react';
 
 export default function PowerScheduler({ showToast }) {
   const [schedulerState, setSchedulerState] = useState({
@@ -19,6 +19,7 @@ export default function PowerScheduler({ showToast }) {
   const [selectedTrigger, setSelectedTrigger] = useState('duration');
   const [selectedMode, setSelectedMode] = useState('smart');
   const [allowCancel, setAllowCancel] = useState(true);
+  const [switchToNormalBeforeShutdown, setSwitchToNormalBeforeShutdown] = useState(false);
 
   // Trigger Values
   const [hours, setHours] = useState(1);
@@ -57,10 +58,156 @@ export default function PowerScheduler({ showToast }) {
   const [chainDownloadSpeed, setChainDownloadSpeed] = useState(100);
   const [chainJellyfinPort, setChainJellyfinPort] = useState(8096);
 
+  // Preset & Memory State Management
+  const [presets, setPresets] = useState(() => {
+    try {
+      const saved = localStorage.getItem('foxwall_power_schedule_presets');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [selectedPresetKey, setSelectedPresetKey] = useState('last_used');
+  const [presetNameInput, setPresetNameInput] = useState('');
+  const [showSavePresetDialog, setShowSavePresetDialog] = useState(false);
+
   // Cancellation State
   const [cancelPassword, setCancelPassword] = useState('');
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false);
   const [cancelError, setCancelError] = useState('');
+
+  // Default configuration object
+  const defaultConfig = {
+    selectedAction: 'shutdown',
+    selectedTrigger: 'duration',
+    selectedMode: 'smart',
+    allowCancel: true,
+    switchToNormalBeforeShutdown: false,
+    hours: 1,
+    minutes: 0,
+    exactTime: '23:00',
+    nextOption: true,
+    idleMinutes: 15,
+    downloadSpeed: 100,
+    jellyfinPort: 8096,
+    graceMinutes: 5,
+    graceSeconds: 0,
+    chainActive: false,
+    selectedChainTrigger: 'jellyfin',
+    chainHours: 0,
+    chainMinutes: 30,
+    chainExactTime: '23:30',
+    chainNextOption: true,
+    chainIdleMinutes: 15,
+    chainDownloadSpeed: 100,
+    chainJellyfinPort: 8096
+  };
+
+  const applyConfig = (cfg) => {
+    if (!cfg) return;
+    if (cfg.selectedAction) setSelectedAction(cfg.selectedAction);
+    if (cfg.selectedTrigger) setSelectedTrigger(cfg.selectedTrigger);
+    if (cfg.selectedMode) setSelectedMode(cfg.selectedMode);
+    if (cfg.allowCancel !== undefined) setAllowCancel(cfg.allowCancel);
+    if (cfg.switchToNormalBeforeShutdown !== undefined) setSwitchToNormalBeforeShutdown(cfg.switchToNormalBeforeShutdown);
+    if (cfg.hours !== undefined) setHours(cfg.hours);
+    if (cfg.minutes !== undefined) setMinutes(cfg.minutes);
+    if (cfg.exactTime) setExactTime(cfg.exactTime);
+    if (cfg.nextOption !== undefined) setNextOption(cfg.nextOption);
+    if (cfg.idleMinutes !== undefined) setIdleMinutes(cfg.idleMinutes);
+    if (cfg.downloadSpeed !== undefined) setDownloadSpeed(cfg.downloadSpeed);
+    if (cfg.jellyfinPort !== undefined) setJellyfinPort(cfg.jellyfinPort);
+    if (cfg.graceMinutes !== undefined) setGraceMinutes(cfg.graceMinutes);
+    if (cfg.graceSeconds !== undefined) setGraceSeconds(cfg.graceSeconds);
+    if (cfg.chainActive !== undefined) setChainActive(cfg.chainActive);
+    if (cfg.selectedChainTrigger) setSelectedChainTrigger(cfg.selectedChainTrigger);
+    if (cfg.chainHours !== undefined) setChainHours(cfg.chainHours);
+    if (cfg.chainMinutes !== undefined) setChainMinutes(cfg.chainMinutes);
+    if (cfg.chainExactTime) setChainExactTime(cfg.chainExactTime);
+    if (cfg.chainNextOption !== undefined) setChainNextOption(cfg.chainNextOption);
+    if (cfg.chainIdleMinutes !== undefined) setChainIdleMinutes(cfg.chainIdleMinutes);
+    if (cfg.chainDownloadSpeed !== undefined) setChainDownloadSpeed(cfg.chainDownloadSpeed);
+    if (cfg.chainJellyfinPort !== undefined) setChainJellyfinPort(cfg.chainJellyfinPort);
+  };
+
+  const getCurrentConfigObject = () => ({
+    selectedAction,
+    selectedTrigger,
+    selectedMode,
+    allowCancel,
+    switchToNormalBeforeShutdown,
+    hours,
+    minutes,
+    exactTime,
+    nextOption,
+    idleMinutes,
+    downloadSpeed,
+    jellyfinPort,
+    graceMinutes,
+    graceSeconds,
+    chainActive,
+    selectedChainTrigger,
+    chainHours,
+    chainMinutes,
+    chainExactTime,
+    chainNextOption,
+    chainIdleMinutes,
+    chainDownloadSpeed,
+    chainJellyfinPort
+  });
+
+  // Load last used setup on mount
+  useEffect(() => {
+    try {
+      const lastUsedStr = localStorage.getItem('foxwall_last_power_schedule');
+      if (lastUsedStr) {
+        const lastCfg = JSON.parse(lastUsedStr);
+        applyConfig(lastCfg);
+      }
+    } catch (e) {
+      console.warn("Failed loading last power schedule memory:", e);
+    }
+  }, []);
+
+  const handleSelectPreset = (key) => {
+    setSelectedPresetKey(key);
+    if (key === 'last_used') {
+      try {
+        const lastUsedStr = localStorage.getItem('foxwall_last_power_schedule');
+        if (lastUsedStr) applyConfig(JSON.parse(lastUsedStr));
+      } catch {}
+    } else if (key === 'default') {
+      applyConfig(defaultConfig);
+    } else if (presets[key]) {
+      applyConfig(presets[key]);
+    }
+  };
+
+  const handleSavePreset = () => {
+    if (!presetNameInput.trim()) return;
+    const name = presetNameInput.trim();
+    const updated = { ...presets, [name]: getCurrentConfigObject() };
+    setPresets(updated);
+    try {
+      localStorage.setItem('foxwall_power_schedule_presets', JSON.stringify(updated));
+    } catch {}
+    setSelectedPresetKey(name);
+    setPresetNameInput('');
+    setShowSavePresetDialog(false);
+    if (showToast) showToast(`Preset "${name}" saved!`);
+  };
+
+  const handleDeletePreset = (key) => {
+    if (!presets[key]) return;
+    const updated = { ...presets };
+    delete updated[key];
+    setPresets(updated);
+    try {
+      localStorage.setItem('foxwall_power_schedule_presets', JSON.stringify(updated));
+    } catch {}
+    setSelectedPresetKey('last_used');
+    if (showToast) showToast(`Preset "${key}" deleted.`);
+  };
 
   // Keep 'now' updated every second for live date/time & duration previews
   useEffect(() => {
@@ -155,7 +302,8 @@ export default function PowerScheduler({ showToast }) {
         mode: selectedMode,
         canCancel: allowCancel.toString(),
         exactTime: selectedTrigger === 'exact' ? getExactTimeISO(exactTime, exactDate, nextOption) : '',
-        graceSeconds: ((graceMinutes * 60) + graceSeconds).toString()
+        graceSeconds: ((graceMinutes * 60) + graceSeconds).toString(),
+        switchToNormal: switchToNormalBeforeShutdown.toString()
       });
 
       if (chainActive) {
@@ -184,6 +332,11 @@ export default function PowerScheduler({ showToast }) {
       const res = await fetch(`/api/power/schedule?${params.toString()}`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
+        // Save to auto-memory
+        try {
+          localStorage.setItem('foxwall_last_power_schedule', JSON.stringify(getCurrentConfigObject()));
+        } catch {}
+
         showToast("Power schedule initiated successfully!");
         setCancelPassword('');
         setCancelError('');
@@ -454,9 +607,100 @@ export default function PowerScheduler({ showToast }) {
           
           /* Scheduling Setup View */
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Timer style={{ color: 'var(--accent-color)' }} /> PC Power Scheduler Setup
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Timer style={{ color: 'var(--accent-color)' }} /> PC Power Scheduler Setup
+              </h2>
+
+              {/* Preset Selector Toolbar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--surface-color)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                  <Bookmark size={16} style={{ color: 'var(--accent-color)' }} />
+                  <span style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500' }}>Preset:</span>
+                  <select
+                    className="search-input"
+                    style={{ background: 'transparent', border: 'none', color: 'white', padding: '2px 6px', fontSize: '13px', cursor: 'pointer', outline: 'none' }}
+                    value={selectedPresetKey}
+                    onChange={(e) => handleSelectPreset(e.target.value)}
+                  >
+                    <option value="last_used" style={{ background: '#222' }}>🕒 Use Last Configuration (Memory)</option>
+                    <option value="default" style={{ background: '#222' }}>⚡ Default Configuration</option>
+                    {Object.keys(presets).length > 0 && (
+                      <optgroup label="Custom Presets" style={{ background: '#222', color: 'var(--accent-color)' }}>
+                        {Object.keys(presets).map((name) => (
+                          <option key={name} value={name} style={{ background: '#222', color: 'white' }}>📌 {name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+
+                <button
+                  className="filter-btn"
+                  style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', fontSize: '12px' }}
+                  onClick={() => setShowSavePresetDialog(true)}
+                  title="Save current setup as custom preset"
+                >
+                  <Save size={14} /> Save Preset
+                </button>
+
+                {presets[selectedPresetKey] && (
+                  <button
+                    className="filter-btn"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 12px', fontSize: '12px', color: 'var(--danger-color)', borderColor: 'rgba(255, 51, 102, 0.3)' }}
+                    onClick={() => handleDeletePreset(selectedPresetKey)}
+                    title="Delete selected preset"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Save Preset Modal Input */}
+            {showSavePresetDialog && (
+              <div style={{
+                background: 'var(--surface-color)',
+                border: '1px solid var(--accent-color)',
+                borderRadius: '10px',
+                padding: '16px',
+                marginBottom: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}>
+                <Sparkles size={18} style={{ color: 'var(--accent-color)' }} />
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Preset Name</div>
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="e.g. Nightly Jellyfin Watch Shutdown"
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                    value={presetNameInput}
+                    onChange={(e) => setPresetNameInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSavePreset(); }}
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                  <button
+                    className="filter-btn active"
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
+                    onClick={handleSavePreset}
+                  >
+                    <Check size={14} /> Save
+                  </button>
+                  <button
+                    className="filter-btn"
+                    style={{ padding: '8px 14px' }}
+                    onClick={() => { setShowSavePresetDialog(false); setPresetNameInput(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Step 1: Select Action */}
             <div style={{ marginBottom: '24px' }}>
@@ -1048,19 +1292,37 @@ export default function PowerScheduler({ showToast }) {
                   4. Cancellation & Security Settings
                 </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyBehavior: 'space-between', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 'bold', fontSize: '12px' }}>Allow Cancellation</div>
                       <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Allow user to abort the countdown schedule</div>
                     </div>
                     <input 
                       type="checkbox" 
-                      style={{ width: '18px', height: '18px', accentColor: 'var(--accent-color)' }}
+                      style={{ width: '18px', height: '18px', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
                       checked={allowCancel}
                       onChange={(e) => setAllowCancel(e.target.checked)}
                     />
                   </div>
                   
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <ShieldCheck size={14} style={{ color: 'var(--accent-color)' }} />
+                        Switch to Normal Mode before Power Off
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        Restores Normal protection with a 10s persistence buffer prior to shutdown/restart (Fixes JellyMode startup connection drops)
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox"
+                      style={{ width: '18px', height: '18px', accentColor: 'var(--accent-color)', cursor: 'pointer' }}
+                      checked={switchToNormalBeforeShutdown}
+                      onChange={(e) => setSwitchToNormalBeforeShutdown(e.target.checked)}
+                    />
+                  </div>
+
                   {/* Warning message for forced schedules */}
                   {!allowCancel && (
                     <div style={{
